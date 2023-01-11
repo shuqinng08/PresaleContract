@@ -99,6 +99,7 @@ fn execute_buy_token(
 
     let received_coin = get_coin_info(&info)?;
     let token_amount: Uint128;
+    let sale_info = SALEINFO.load(deps.storage)?;
 
     let message: CosmosMsg;
 
@@ -106,7 +107,6 @@ fn execute_buy_token(
 
     if received_coin.denom.as_str() == ATOM {
         token_amount = received_coin.amount * state.token_cost_atom;
-        let sale_info = SALEINFO.load(deps.storage)?;
 
         if token_amount + sale_info.token_sold_amount > state.total_supply {
             return Err(ContractError::NoEnoughTokens {});
@@ -152,7 +152,6 @@ fn execute_buy_token(
         })
     } else if received_coin.denom.as_str() == JUNO {
         token_amount = received_coin.amount * state.token_cost_juno;
-        let sale_info = SALEINFO.load(deps.storage)?;
 
         if token_amount + sale_info.token_sold_amount > state.total_supply {
             return Err(ContractError::NoEnoughTokens {});
@@ -198,7 +197,6 @@ fn execute_buy_token(
         })
     } else {
         token_amount = received_coin.amount * state.token_cost_usdc;
-        let sale_info = SALEINFO.load(deps.storage)?;
 
         if token_amount + sale_info.token_sold_amount > state.total_supply {
             return Err(ContractError::NoEnoughTokens {});
@@ -242,6 +240,14 @@ fn execute_buy_token(
                 amount: received_coin.amount,
             }],
         })
+    }
+
+    if sale_info.token_sold_amount + token_amount == state.total_supply {
+        CONFIG.update(deps.storage, |mut state| -> StdResult<_> {
+            state.presale_period = crr_time - state.presale_start;
+            state.claim_start = crr_time + state.vesting_step_period;
+            Ok(state)
+        })?;
     }
 
     Ok(Response::new()
